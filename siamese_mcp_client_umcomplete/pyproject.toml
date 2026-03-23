@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "siamese-mcp-client"
+version = "0.1.0"
+description = "Python MCP client for the Siamese Face MCP server."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx",
+  "mcp",
+  "pydantic",
+]
+
+[project.scripts]
+siamese-mcp-client = "siamese_mcp_client.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/siamese_mcp_client"]
