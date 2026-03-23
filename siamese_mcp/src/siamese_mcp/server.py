@@ -1,26 +1,23 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any
 
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
 from starlette.applications import Starlette
 
-from .face_service import compare_face_to_registry
+from .face_service import register_face_image, search_face_image
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REGISTRY_PATH = PACKAGE_ROOT / "data" / "faces.json"
 HOST = os.getenv("SIAMESE_MCP_HOST", "127.0.0.1")
 PORT = int(os.getenv("SIAMESE_MCP_PORT", "8000"))
 
 mcp = FastMCP(
     name="Siamese Face MCP",
     instructions=(
-        "Look up reference faces by name in a JSON-backed registry and compare the "
-        "probe face image only against those matching entries using DeepFace with "
-        "ArcFace, MTCNN, and cosine distance."
+        "Register and search JPEG face images using DeepFace backed by PostgreSQL. "
+        "The person name is always derived from the JPEG filename stem, and ANN "
+        "searches are only accepted when the matched identity equals that stem."
     ),
     host=HOST,
     port=PORT,
@@ -28,25 +25,47 @@ mcp = FastMCP(
 
 
 @mcp.tool(
-    name="compare_face_against_registry",
-    description="Find registry faces by name and compare the probe face image only against those matching entries.",
+    name="register_face_image",
+    description="Register a JPG or JPEG image into PostgreSQL and rebuild the DeepFace ANN index.",
 )
-async def compare_face_against_registry(
-    image_path: str,
-    name: str,
+async def register_face_image_tool(
+    filename: str,
+    image_jpeg_base64: str,
     ctx: Context,
-    registry_path: str = str(DEFAULT_REGISTRY_PATH),
     enforce_detection: bool = True,
     align: bool = True,
     expand_percentage: int = 0,
 ) -> dict[str, Any]:
     await ctx.info(
-        f"Comparing probe image '{image_path}' against registry '{registry_path}' for requested name '{name}'."
+        f"Registering filename '{filename}' into the PostgreSQL-backed DeepFace registry."
     )
-    return compare_face_to_registry(
-        probe_image_path=image_path,
-        requested_name=name,
-        registry_path=registry_path,
+    return register_face_image(
+        filename=filename,
+        image_jpeg_base64=image_jpeg_base64,
+        enforce_detection=enforce_detection,
+        align=align,
+        expand_percentage=expand_percentage,
+    )
+
+
+@mcp.tool(
+    name="search_face_image",
+    description="Search the global DeepFace ANN index using a JPG or JPEG image and only accept hits matching the filename stem.",
+)
+async def search_face_image_tool(
+    filename: str,
+    image_jpeg_base64: str,
+    ctx: Context,
+    enforce_detection: bool = True,
+    align: bool = True,
+    expand_percentage: int = 0,
+) -> dict[str, Any]:
+    await ctx.info(
+        f"Searching the PostgreSQL-backed DeepFace ANN index for filename '{filename}'."
+    )
+    return search_face_image(
+        filename=filename,
+        image_jpeg_base64=image_jpeg_base64,
         enforce_detection=enforce_detection,
         align=align,
         expand_percentage=expand_percentage,
@@ -54,16 +73,19 @@ async def compare_face_against_registry(
 
 
 @mcp.resource(
-    "registry://faces",
-    name="face_registry_config",
-    description="Path and metadata for the default face registry used by the Siamese Face MCP server.",
+    "service://face-recognition",
+    name="face_service_info",
+    description="Transport and capability metadata for the Siamese Face MCP server.",
     mime_type="application/json",
 )
-def get_default_registry() -> dict[str, Any]:
+def get_service_info() -> dict[str, Any]:
     return {
-        "default_registry_path": str(DEFAULT_REGISTRY_PATH),
         "streamable_http_path": "/mcp",
         "transport": "streamable-http",
+        "registry_backend": "postgres",
+        "ann_enabled": True,
+        "accepted_extensions": [".jpg", ".jpeg"],
+        "image_transport": "base64_jpeg",
     }
 
 

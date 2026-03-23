@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: siamese-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-deepface}
+      POSTGRES_USER: ${POSTGRES_USER:-deepface}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deepface}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deepface} -d ${POSTGRES_DB:-deepface}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mcp-server:
+    build:
+      context: ./siamese_mcp
+    container_name: siamese-mcp-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SIAMESE_MCP_HOST: 0.0.0.0
+      SIAMESE_MCP_PORT: 8000
+      DEEPFACE_POSTGRES_URI: postgresql://${POSTGRES_USER:-deepface}:${POSTGRES_PASSWORD:-deepface}@postgres:5432/${POSTGRES_DB:-deepface}
+      SIAMESE_APP_POSTGRES_URI: postgresql://${POSTGRES_USER:-deepface}:${POSTGRES_PASSWORD:-deepface}@postgres:5432/${POSTGRES_DB:-deepface}
+    ports:
+      - "${SIAMESE_MCP_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 import json
 from contextlib import AsyncExitStack
+from pathlib import Path
 from typing import Any
 
 import mcp.types as mcp_types
@@ -9,11 +11,12 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
 
-from .models import CompareFaceResponse, RegistryInfo
+from .models import RegisterFaceResponse, SearchFaceResponse, ServiceInfo
 
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000/mcp"
-COMPARE_TOOL_NAME = "compare_face_against_registry"
-REGISTRY_RESOURCE_URI = "registry://faces"
+REGISTER_TOOL_NAME = "register_face_image"
+SEARCH_TOOL_NAME = "search_face_image"
+SERVICE_RESOURCE_URI = "service://face-recognition"
 
 
 class SiameseMcpClientError(RuntimeError):
@@ -92,39 +95,92 @@ class SiameseMcpClient:
         result = await session.list_tools()
         return result.tools
 
-    async def get_registry_info(self) -> RegistryInfo:
+    async def get_service_info(self) -> ServiceInfo:
         session = self._require_session()
-        result = await session.read_resource(REGISTRY_RESOURCE_URI)
+        result = await session.read_resource(SERVICE_RESOURCE_URI)
         payload = self._extract_json_from_resource(result)
-        return RegistryInfo.model_validate(payload)
+        return ServiceInfo.model_validate(payload)
 
-    async def compare_face(
+    async def register_face_image(
         self,
         *,
-        image_path: str,
-        name: str,
-        registry_path: str | None = None,
+        filename: str,
+        image_jpeg_base64: str,
         enforce_detection: bool = True,
         align: bool = True,
         expand_percentage: int = 0,
-    ) -> CompareFaceResponse:
+    ) -> RegisterFaceResponse:
         session = self._require_session()
         arguments: dict[str, Any] = {
-            "image_path": image_path,
-            "name": name,
+            "filename": filename,
+            "image_jpeg_base64": image_jpeg_base64,
             "enforce_detection": enforce_detection,
             "align": align,
             "expand_percentage": expand_percentage,
         }
-        if registry_path is not None:
-            arguments["registry_path"] = registry_path
-
-        result = await session.call_tool(COMPARE_TOOL_NAME, arguments=arguments)
+        result = await session.call_tool(REGISTER_TOOL_NAME, arguments=arguments)
         if result.isError:
             raise SiameseMcpToolError(self._tool_error_message(result))
 
         payload = self._extract_json_from_tool_result(result)
-        return CompareFaceResponse.model_validate(payload)
+        return RegisterFaceResponse.model_validate(payload)
+
+    async def search_face_image(
+        self,
+        *,
+        filename: str,
+        image_jpeg_base64: str,
+        enforce_detection: bool = True,
+        align: bool = True,
+        expand_percentage: int = 0,
+    ) -> SearchFaceResponse:
+        session = self._require_session()
+        arguments: dict[str, Any] = {
+            "filename": filename,
+            "image_jpeg_base64": image_jpeg_base64,
+            "enforce_detection": enforce_detection,
+            "align": align,
+            "expand_percentage": expand_percentage,
+        }
+
+        result = await session.call_tool(SEARCH_TOOL_NAME, arguments=arguments)
+        if result.isError:
+            raise SiameseMcpToolError(self._tool_error_message(result))
+
+        payload = self._extract_json_from_tool_result(result)
+        return SearchFaceResponse.model_validate(payload)
+
+    async def register_face_file(
+        self,
+        *,
+        image_path: str,
+        enforce_detection: bool = True,
+        align: bool = True,
+        expand_percentage: int = 0,
+    ) -> RegisterFaceResponse:
+        return await self.register_face_image(
+            filename=Path(image_path).name,
+            image_jpeg_base64=_encode_image_file_to_base64(image_path),
+            enforce_detection=enforce_detection,
+            align=align,
+            expand_percentage=expand_percentage,
+        )
+
+    async def search_face_file(
+        self,
+        *,
+        image_path: str,
+        enforce_detection: bool = True,
+        align: bool = True,
+        expand_percentage: int = 0,
+    ) -> SearchFaceResponse:
+        return await self.search_face_image(
+            filename=Path(image_path).name,
+            image_jpeg_base64=_encode_image_file_to_base64(image_path),
+            enforce_detection=enforce_detection,
+            align=align,
+            expand_percentage=expand_percentage,
+        )
 
     def _require_session(self) -> ClientSession:
         if self._session is None:
@@ -163,3 +219,7 @@ class SiameseMcpClient:
         if text_parts:
             return "\n".join(text_parts)
         return "The MCP server returned an error for the tool call."
+
+
+def _encode_image_file_to_base64(image_path: str) -> str:
+    return base64.b64encode(Path(image_path).read_bytes()).decode("ascii")

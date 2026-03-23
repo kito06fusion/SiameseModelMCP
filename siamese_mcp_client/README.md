@@ -1,19 +1,14 @@
 # Siamese MCP Client
 
-Python client for the local Siamese Face MCP server. It is designed for two use cases:
-
-- smoke-testing the running MCP server during development
-- reusing the same MCP client wrapper later inside a larger custom agent application
+Python client for the Dockerized Siamese Face MCP server.
 
 ## What It Connects To
-
-This client targets the Siamese Face MCP server over streamable HTTP:
 
 ```text
 http://127.0.0.1:8000/mcp
 ```
 
-The server should already be running before you use the client.
+The server is expected to be running already, usually via `docker compose up`.
 
 ## Setup
 
@@ -34,22 +29,27 @@ List tools exposed by the server:
 python -m siamese_mcp_client.cli tools
 ```
 
-Read the registry resource:
+Read the service resource:
 
 ```bash
-python -m siamese_mcp_client.cli registry
+python -m siamese_mcp_client.cli service
 ```
 
-Call the face comparison tool:
+Register a face:
 
 ```bash
-python -m siamese_mcp_client.cli compare \
-  --image /absolute/path/to/probe.jpg \
-  --name Alice \
-  --registry /absolute/path/to/faces.json
+python -m siamese_mcp_client.cli register \
+  --image /absolute/path/to/kitoruijter.jpg
 ```
 
-The compare command prints a short summary first and then the full JSON response.
+Search the ANN index:
+
+```bash
+python -m siamese_mcp_client.cli search \
+  --image /absolute/path/to/kitoruijter.jpg
+```
+
+The CLI reads the local JPEG, base64-encodes it, and sends only `filename` plus `image_jpeg_base64` to the MCP server.
 
 ## Reusable Python API
 
@@ -61,11 +61,8 @@ from siamese_mcp_client import SiameseMcpClient
 
 async def main() -> None:
     async with SiameseMcpClient("http://127.0.0.1:8000/mcp") as client:
-        result = await client.compare_face(
-            image_path="/absolute/path/to/probe.jpg",
-            name="Alice",
-            registry_path="/absolute/path/to/faces.json",
-        )
+        await client.register_face_file(image_path="/absolute/path/to/kitoruijter.jpg")
+        result = await client.search_face_file(image_path="/absolute/path/to/kitoruijter.jpg")
         print(result.best_match)
         print(result.warnings)
 
@@ -73,16 +70,14 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-## Future Agent Integration
+## Agent Contract
 
-For your larger application, keep the agent layer separate from this MCP transport layer:
+This client matches the new MCP rules:
 
-- the agent decides when face verification is needed
-- the agent calls `SiameseMcpClient.compare_face(...)`
-- the client talks to the running MCP server
-- the agent consumes typed fields like `best_match`, `matches`, `distance`, `threshold`, and `warnings`
-
-This keeps your future Azure-backed LLM code independent from low-level MCP session management.
+- only `.jpg` and `.jpeg` files are supported
+- the person identity comes from the filename stem
+- ANN search is global across the database
+- a result is accepted only when the best ANN hit matches the filename-derived identity
 
 ## Tests
 
@@ -93,6 +88,3 @@ PYTHONPATH=src python -m unittest discover -s tests -p "test_client_contract.py"
 ```
 
 These tests mock MCP responses and validate client-side parsing without needing the server to be live.
-
-
-python -m siamese_mcp_client.cli compare --image "/Users/kitoruijter/Certificaten/myphoto.jpeg" --name Kito --registry /Users/kitoruijter/SiameseModelMCP/siamese_mcp/data/faces.json
