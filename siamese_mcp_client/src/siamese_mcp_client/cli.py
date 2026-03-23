@@ -6,6 +6,36 @@ import asyncio
 from .client import DEFAULT_SERVER_URL, SiameseMcpClient
 
 
+def _print_key_summary(result) -> None:
+    print()
+    print("Most important info:")
+    print(f"- Name: {result.request.requested_name}")
+    print(f"- Match found: {result.summary.match_found}")
+    print(f"- Candidate entries: {result.summary.candidate_entries}")
+    print(f"- Successful comparisons: {result.summary.successful_comparisons}")
+    print(f"- Time: {result.summary.elapsed_seconds}s")
+
+    if result.best_match is None:
+        print("- Best match: none")
+    else:
+        confidence = None
+        if result.best_match.raw_deepface_response is not None:
+            confidence = result.best_match.raw_deepface_response.get("confidence")
+
+        print(f"- Best match: {result.best_match.registry_name}")
+        print(f"- Verified: {result.best_match.verified}")
+        print(f"- Distance: {result.best_match.distance}")
+        print(f"- Threshold: {result.best_match.threshold}")
+        print(f"- Distance margin: {result.best_match.distance_margin}")
+        print(f"- Confidence: {confidence}")
+        print(f"- Reference image: {result.best_match.reference_image_path}")
+
+    if result.warnings:
+        print("- Warnings:")
+        for warning in result.warnings:
+            print(f"  {warning}")
+
+
 async def _run_compare(args: argparse.Namespace) -> int:
     async with SiameseMcpClient(server_url=args.server_url) as client:
         result = await client.compare_face(
@@ -31,6 +61,7 @@ async def _run_compare(args: argparse.Namespace) -> int:
             print(f"- {warning}")
     print()
     print(result.model_dump_json(indent=2))
+    _print_key_summary(result)
     return 0
 
 
