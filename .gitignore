@@ -16,3 +16,8 @@ dist/
 siamese_mcp/.venv/
 siamese_mcp/.env
 siamese_mcp/.cache/
+siamese_mcp_client/.venv/
+siamese_mcp_client/.env
+siamese_mcp_client/.cache/
+siamese_mcp/data/reference/*
+!siamese_mcp/data/reference/.gitkeep
