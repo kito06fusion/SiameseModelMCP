@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "siamese-mcp"
+version = "0.1.0"
+description = "Local FastMCP server for DeepFace face comparisons."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "deepface",
+  "mcp",
+  "uvicorn",
+]
+
+[project.scripts]
+siamese-mcp = "siamese_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/siamese_mcp"]
