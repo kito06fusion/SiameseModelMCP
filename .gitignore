@@ -29,3 +29,6 @@ siamese_mcp_client_umcomplete/.env
 siamese_mcp_client_umcomplete/.cache/
 siamese_mcp_uncomplete/data/reference/*
 !siamese_mcp_uncomplete/data/reference/.gitkeep
+agent/.venv/
+agent/.env
+agent/.cache/   
