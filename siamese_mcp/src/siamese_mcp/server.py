@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import os
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -24,23 +26,23 @@ mcp = FastMCP(
 )
 
 
+
 @mcp.tool(
-    name="register_face_image",
-    description="Register a JPG or JPEG image into PostgreSQL and rebuild the DeepFace ANN index.",
+    name="register_face_file",
+    description="Register a JPEG image from a file path accessible to the server (e.g. /shared/person.jpg).",
 )
-async def register_face_image_tool(
-    filename: str,
-    image_jpeg_base64: str,
+async def register_face_file_tool(
+    file_path: str,
     ctx: Context,
     enforce_detection: bool = True,
     align: bool = True,
     expand_percentage: int = 0,
 ) -> dict[str, Any]:
-    await ctx.info(
-        f"Registering filename '{filename}' into the PostgreSQL-backed DeepFace registry."
-    )
+    await ctx.info(f"Registering file '{file_path}' into the PostgreSQL-backed DeepFace registry.")
+    path = Path(file_path)
+    image_jpeg_base64 = base64.b64encode(path.read_bytes()).decode()
     return register_face_image(
-        filename=filename,
+        filename=path.name,
         image_jpeg_base64=image_jpeg_base64,
         enforce_detection=enforce_detection,
         align=align,
@@ -49,22 +51,21 @@ async def register_face_image_tool(
 
 
 @mcp.tool(
-    name="search_face_image",
-    description="Search the global DeepFace ANN index using a JPG or JPEG image and only accept hits matching the filename stem.",
+    name="search_face_file",
+    description="Search the DeepFace ANN index using a JPEG image from a file path accessible to the server (e.g. /shared/person.jpg).",
 )
-async def search_face_image_tool(
-    filename: str,
-    image_jpeg_base64: str,
+async def search_face_file_tool(
+    file_path: str,
     ctx: Context,
     enforce_detection: bool = True,
     align: bool = True,
     expand_percentage: int = 0,
 ) -> dict[str, Any]:
-    await ctx.info(
-        f"Searching the PostgreSQL-backed DeepFace ANN index for filename '{filename}'."
-    )
+    await ctx.info(f"Searching the PostgreSQL-backed DeepFace ANN index using file '{file_path}'.")
+    path = Path(file_path)
+    image_jpeg_base64 = base64.b64encode(path.read_bytes()).decode()
     return search_face_image(
-        filename=filename,
+        filename=path.name,
         image_jpeg_base64=image_jpeg_base64,
         enforce_detection=enforce_detection,
         align=align,
