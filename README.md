@@ -13,6 +13,7 @@ By the end of this workshop, you will have practiced the core MCP ideas:
 - listing tools from a client
 - reading a resource from a client
 - calling a tool from a client
+- connecting an agent to MCP tools
 
 ## Which Folders To Use
 
@@ -20,6 +21,7 @@ Use these workshop folders:
 
 - Server: `siamese_mcp_uncomplete/`
 - Client: `siamese_mcp_client_umcomplete/`
+- Agent: `agent_uncomplete/`
 
 These folders already contain missing pieces marked with `TODO` comments and `NotImplementedError(...)`.
 
@@ -71,7 +73,8 @@ Follow the tasks in this order:
 3. Rebuild the client connection.
 4. Rebuild tool discovery and resource reading.
 5. Rebuild client-side tool calls.
-6. Optionally rebuild the simple CLI helpers.
+6. Rebuild the simple CLI helpers.
+7. Complete the agent wiring.
 
 ## Part 1: Server Tools
 
@@ -493,6 +496,85 @@ And the output should make sense:
 - [MCP Quickstart](https://modelcontextprotocol.io/quickstart)
 - [Official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 
+## Part 7: Agent Challenge
+
+Open:
+
+`agent_uncomplete/agent.py`
+
+This part is for learners who want to see how MCP tools can be used from an agent.
+
+You do **not** need to build a full agent system from scratch.
+
+The main job is to fill in the missing `TODO` values.
+
+### What you need to complete
+
+Fill in these parts:
+
+- the agent instructions
+- the `name` and `url` inside `MCPStreamableHTTPTool(...)`
+- the `project_endpoint`, `deployment_name`, and `credential` inside `AzureOpenAIResponsesClient(...)`
+- the `name` and `instructions` inside `Agent(...)`
+
+### What each part means
+
+For the instructions:
+
+- describe what kind of assistant the agent should be
+- explain which MCP tools it can use
+- explain how it should handle image paths
+- explain how it should format responses
+
+For `MCPStreamableHTTPTool(...)`:
+
+- `name` should be a clear human-readable tool connection name
+- `url` should point to the Siamese MCP endpoint
+
+For `AzureOpenAIResponsesClient(...)`:
+
+- `project_endpoint` should come from your Azure AI project setup
+- `deployment_name` should match your Azure OpenAI deployment
+- `credential` should be the Azure credential object already created in the `async with` block
+
+For `Agent(...)`:
+
+- `name` should clearly describe the agent
+- `instructions` should use the instruction text you created earlier in the file
+
+### Good order to solve it
+
+1. Read the full `agent_uncomplete/agent.py` file first.
+2. Find every `TODO`.
+3. Write the agent instructions.
+4. Fill in the MCP tool connection values.
+5. Fill in the Azure client values.
+6. Fill in the final agent values.
+7. Run the script and try one simple prompt.
+
+### Hints
+
+- The MCP endpoint in this workshop is usually `http://127.0.0.1:8000/mcp`.
+- The credential is not a string. It should be the Azure credential object from the async context.
+- The agent instructions are important because they influence when the agent calls tools and how it explains results.
+- This project uses the server-side `/shared/` folder for image tests, so the agent should know how to turn a filename into `/shared/<filename>`.
+
+### Done when
+
+You are done with this section when:
+
+- there are no `TODO` placeholders left in `agent_uncomplete/agent.py`
+- the script starts without configuration errors
+- the agent can answer a prompt and use the MCP server
+
+### Helpful sources
+
+- `agent/agent.py`
+- `README.md`
+- [MCP Quickstart](https://modelcontextprotocol.io/quickstart)
+- [Official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+- [Microsoft Learn: Using MCP tools with agents](https://learn.microsoft.com/en-us/agent-framework/agents/tools/local-mcp-tools)
+
 ## How To Test Yourself
 
 From the repository root:
@@ -509,78 +591,39 @@ python -m siamese_mcp_client.cli tools
 python -m siamese_mcp_client.cli service
 ```
 
+### Prepare your test data
+
+Before you test image matching, make sure you set up the data correctly:
+
+- add at least one face image to the database
+- use the person's name as the image filename
+- place the image you want to compare in the `shared/` folder
+
+The main idea is:
+
+- the database should already contain a known face
+- that known face should have been added with a filename that identifies the person
+- the image you want to compare should be available in `shared/` so the server can access it
+
+Example:
+
+- if you add `elonmusk.jpg` to the database, the filename represents the known person
+- if you want to test a new picture against that person, put that new picture in `shared/`
+
+### Test the MCP server
+
 If you also finished the tool-calling methods, try:
 
 ```bash
-python -m siamese_mcp_client.cli register --image /absolute/path/to/file.jpg
-python -m siamese_mcp_client.cli search --image /absolute/path/to/file.jpg
+python -m siamese_mcp_client.cli register --image /absolute/path/to/person_name.jpg
+python -m siamese_mcp_client.cli search --image /absolute/path/to/comparison_image.jpg
 ```
 
-## If You Get Stuck
+If you are testing through the agent:
 
-Start simple.
-
-For each missing function:
-
-1. Read the function name and signature.
-2. Read the `TODO` comment.
-3. Look at the helper functions already present in the file.
-4. Copy the small example pattern from this README.
-5. Make the smallest version that works.
-
-You do not need to write clever code. You only need code that is clear and correct.
-
-## Quick MCP Cheat Sheet
-
-### Server tool
-
-```python
-@mcp.tool(name="tool_name", description="What the tool does")
-async def my_tool(value: str, ctx: Context) -> dict[str, Any]:
-    await ctx.info("Running tool")
-    return {"value": value}
-```
-
-### Server resource
-
-```python
-@mcp.resource("service://example", mime_type="application/json")
-def get_resource() -> dict[str, Any]:
-    return {"transport": "streamable-http"}
-```
-
-### Client list tools
-
-```python
-session = self._require_session()
-result = await session.list_tools()
-return result.tools
-```
-
-### Client read resource
-
-```python
-session = self._require_session()
-result = await session.read_resource("service://example")
-payload = self._extract_json_from_resource(result)
-```
-
-### Client call tool
-
-```python
-session = self._require_session()
-result = await session.call_tool("tool_name", arguments={"value": "hello"})
-```
-
-## Suggested Learning Sources
-
-Start with these:
-
-- [MCP Quickstart](https://modelcontextprotocol.io/quickstart)
-- [Official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-- [Microsoft Learn: Build an MCP server into a Python app](https://learn.microsoft.com/en-us/azure/app-service/tutorial-ai-model-context-protocol-server-python)
-- [Microsoft Learn: Using MCP tools with agents](https://learn.microsoft.com/en-us/agent-framework/agents/tools/local-mcp-tools)
-- [Microsoft MCP for Beginners](https://aka.ms/PythonMCP/repo)
+- make sure the comparison image is inside `shared/`
+- ask the agent to register or search using the filename
+- the agent should translate that filename into `/shared/<filename>` before calling the MCP tool
 
 ## Final Goal
 
