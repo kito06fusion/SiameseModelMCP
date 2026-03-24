@@ -30,6 +30,8 @@ services:
       SIAMESE_APP_POSTGRES_URI: postgresql://${POSTGRES_USER:-deepface}:${POSTGRES_PASSWORD:-deepface}@postgres:5432/${POSTGRES_DB:-deepface}
     ports:
       - "${SIAMESE_MCP_PORT:-8000}:8000"
+    volumes:
+      - ./shared:/shared
     restart: unless-stopped
 
 volumes:
